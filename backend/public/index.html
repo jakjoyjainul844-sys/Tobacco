@@ -1,0 +1,1328 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Smart Classroom Entry & Screening Dashboard</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #090d16;
+      --card-bg: rgba(18, 26, 43, 0.75);
+      --card-border: rgba(255, 255, 255, 0.08);
+      --accent-blue: #3b82f6;
+      --accent-cyan: #06b6d4;
+      --accent-emerald: #10b981;
+      --accent-amber: #f59e0b;
+      --accent-red: #ef4444;
+      --accent-purple: #8b5cf6;
+      --text: #f1f5f9;
+      --text-muted: #94a3b8;
+      --text-dim: #64748b;
+      --font-main: 'Plus Jakarta Sans', sans-serif;
+      --font-mono: 'JetBrains Mono', monospace;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: radial-gradient(circle at top right, #131d36 0%, #090d16 100%);
+      color: var(--text);
+      font-family: var(--font-main);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      overflow-x: hidden;
+    }
+
+    /* Scrollbar */
+    ::-webkit-scrollbar { width: 8px; height: 8px; }
+    ::-webkit-scrollbar-track { background: #0b1120; }
+    ::-webkit-scrollbar-thumb { background: #1e293b; border-radius: 4px; }
+    ::-webkit-scrollbar-thumb:hover { background: #334155; }
+
+    header {
+      background: rgba(11, 17, 32, 0.85);
+      backdrop-filter: blur(12px);
+      border-bottom: 1px solid var(--card-border);
+      padding: 16px 28px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      position: sticky;
+      top: 0;
+      z-index: 50;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+
+    .brand-icon {
+      width: 44px;
+      height: 44px;
+      background: linear-gradient(135deg, #2563eb, #06b6d4);
+      border-radius: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 22px;
+      box-shadow: 0 4px 20px rgba(37, 99, 235, 0.35);
+    }
+
+    .brand h1 {
+      font-size: 1.15rem;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+      background: linear-gradient(to right, #ffffff, #cbd5e1);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .brand p {
+      font-size: 0.78rem;
+      color: var(--text-muted);
+    }
+
+    .header-pills {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .pill {
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid var(--card-border);
+      padding: 6px 14px;
+      border-radius: 999px;
+      font-size: 0.75rem;
+      font-weight: 500;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--text-dim);
+    }
+    .dot.green { background: var(--accent-emerald); box-shadow: 0 0 8px var(--accent-emerald); }
+    .dot.blue { background: var(--accent-blue); box-shadow: 0 0 8px var(--accent-blue); }
+    .dot.amber { background: var(--accent-amber); box-shadow: 0 0 8px var(--accent-amber); }
+
+    .nav-tabs {
+      display: flex;
+      gap: 8px;
+      padding: 12px 28px;
+      background: rgba(15, 23, 42, 0.6);
+      border-bottom: 1px solid var(--card-border);
+      overflow-x: auto;
+    }
+
+    .tab-btn {
+      background: transparent;
+      border: none;
+      color: var(--text-muted);
+      padding: 10px 18px;
+      border-radius: 8px;
+      font-size: 0.85rem;
+      font-weight: 600;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      transition: all 0.2s ease;
+      font-family: inherit;
+    }
+
+    .tab-btn:hover {
+      color: #fff;
+      background: rgba(255, 255, 255, 0.05);
+    }
+
+    .tab-btn.active {
+      color: #fff;
+      background: rgba(59, 130, 246, 0.2);
+      border: 1px solid rgba(59, 130, 246, 0.4);
+      box-shadow: 0 2px 10px rgba(59, 130, 246, 0.2);
+    }
+
+    main {
+      flex: 1;
+      padding: 24px 28px;
+      max-width: 1400px;
+      width: 100%;
+      margin: 0 auto;
+    }
+
+    .tab-content {
+      display: none;
+      animation: fadeIn 0.25s ease-out;
+    }
+    .tab-content.active { display: block; }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(6px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    /* Grid cards */
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 16px;
+      margin-bottom: 24px;
+    }
+
+    .stat-card {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 14px;
+      padding: 20px;
+      backdrop-filter: blur(10px);
+      position: relative;
+      overflow: hidden;
+      transition: transform 0.2s;
+    }
+    .stat-card:hover { transform: translateY(-2px); }
+
+    .stat-card::before {
+      content: '';
+      position: absolute;
+      top: 0; left: 0; right: 0; height: 3px;
+      background: linear-gradient(90deg, var(--card-accent, #3b82f6), transparent);
+    }
+
+    .stat-label {
+      font-size: 0.78rem;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--text-muted);
+      margin-bottom: 8px;
+      font-weight: 600;
+    }
+
+    .stat-value {
+      font-size: 1.85rem;
+      font-weight: 800;
+      letter-spacing: -0.03em;
+      display: flex;
+      align-items: baseline;
+      gap: 8px;
+    }
+
+    .stat-sub {
+      font-size: 0.75rem;
+      color: var(--text-dim);
+      margin-top: 6px;
+    }
+
+    /* Panels & Tables */
+    .panel {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 16px;
+      padding: 22px;
+      margin-bottom: 24px;
+      backdrop-filter: blur(10px);
+    }
+
+    .panel-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 18px;
+      flex-wrap: wrap;
+      gap: 12px;
+    }
+
+    .panel-title {
+      font-size: 1.05rem;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .btn {
+      background: #2563eb;
+      color: #fff;
+      border: none;
+      padding: 9px 18px;
+      border-radius: 10px;
+      font-size: 0.82rem;
+      font-weight: 600;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      transition: all 0.2s;
+      font-family: inherit;
+      text-decoration: none;
+    }
+    .btn:hover { background: #1d4ed8; transform: translateY(-1px); }
+    .btn.emerald { background: #059669; }
+    .btn.emerald:hover { background: #047857; }
+    .btn.amber { background: #d97706; }
+    .btn.amber:hover { background: #b45309; }
+    .btn.red { background: #dc2626; }
+    .btn.red:hover { background: #b91c1c; }
+    .btn.secondary { background: rgba(255, 255, 255, 0.08); color: var(--text); }
+    .btn.secondary:hover { background: rgba(255, 255, 255, 0.15); }
+    .btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+
+    .search-input {
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid var(--card-border);
+      color: #fff;
+      padding: 8px 14px;
+      border-radius: 8px;
+      font-size: 0.82rem;
+      font-family: inherit;
+      outline: none;
+      min-width: 240px;
+    }
+    .search-input:focus { border-color: var(--accent-blue); }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.85rem;
+    }
+
+    th {
+      text-align: left;
+      padding: 12px 14px;
+      background: rgba(255, 255, 255, 0.03);
+      color: var(--text-muted);
+      font-weight: 600;
+      font-size: 0.74rem;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      border-bottom: 1px solid var(--card-border);
+    }
+
+    td {
+      padding: 14px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+      color: var(--text);
+    }
+
+    tr:hover td {
+      background: rgba(255, 255, 255, 0.02);
+    }
+
+    .badge {
+      padding: 4px 10px;
+      border-radius: 999px;
+      font-size: 0.72rem;
+      font-weight: 600;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .badge.green { background: rgba(16, 185, 129, 0.15); color: #34d399; border: 1px solid rgba(16, 185, 129, 0.3); }
+    .badge.red { background: rgba(239, 68, 68, 0.15); color: #f87171; border: 1px solid rgba(239, 68, 68, 0.3); }
+    .badge.amber { background: rgba(245, 158, 11, 0.15); color: #fbbf24; border: 1px solid rgba(245, 158, 11, 0.3); }
+    .badge.blue { background: rgba(59, 130, 246, 0.15); color: #60a5fa; border: 1px solid rgba(59, 130, 246, 0.3); }
+    .badge.gray { background: rgba(148, 163, 184, 0.15); color: #cbd5e1; border: 1px solid rgba(148, 163, 184, 0.3); }
+
+    .fp-badge {
+      font-family: var(--font-mono);
+      font-weight: 700;
+      color: #38bdf8;
+      background: rgba(56, 189, 248, 0.1);
+      padding: 3px 8px;
+      border-radius: 6px;
+      border: 1px solid rgba(56, 189, 248, 0.25);
+    }
+
+    /* Modal */
+    .modal-backdrop {
+      position: fixed;
+      inset: 0;
+      background: rgba(3, 7, 18, 0.8);
+      backdrop-filter: blur(8px);
+      z-index: 100;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+      opacity: 0;
+      pointer-events: none;
+      transition: all 0.2s;
+    }
+    .modal-backdrop.open { opacity: 1; pointer-events: auto; }
+
+    .modal {
+      background: #0f172a;
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      border-radius: 18px;
+      width: 100%;
+      max-width: 540px;
+      padding: 28px;
+      box-shadow: 0 20px 40px rgba(0, 0, 0, 0.6);
+      transform: scale(0.96);
+      transition: all 0.2s;
+    }
+    .modal-backdrop.open .modal { transform: scale(1); }
+
+    .modal-title {
+      font-size: 1.25rem;
+      font-weight: 700;
+      margin-bottom: 6px;
+    }
+
+    .modal-sub {
+      font-size: 0.8rem;
+      color: var(--text-muted);
+      margin-bottom: 20px;
+    }
+
+    .form-group {
+      margin-bottom: 16px;
+    }
+
+    .form-label {
+      display: block;
+      font-size: 0.78rem;
+      font-weight: 600;
+      color: var(--text-muted);
+      margin-bottom: 6px;
+    }
+
+    .form-control {
+      width: 100%;
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid var(--card-border);
+      border-radius: 8px;
+      padding: 10px 14px;
+      color: #fff;
+      font-family: inherit;
+      font-size: 0.88rem;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+    .form-control:focus { border-color: var(--accent-blue); }
+
+    .form-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+    }
+
+    .enroll-option-card {
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid var(--card-border);
+      border-radius: 10px;
+      padding: 12px;
+      cursor: pointer;
+      margin-bottom: 10px;
+      transition: all 0.2s;
+    }
+    .enroll-option-card:hover, .enroll-option-card.selected {
+      background: rgba(59, 130, 246, 0.1);
+      border-color: rgba(59, 130, 246, 0.5);
+    }
+    .enroll-option-card h4 { font-size: 0.85rem; margin-bottom: 2px; }
+    .enroll-option-card p { font-size: 0.74rem; color: var(--text-muted); }
+
+    .modal-actions {
+      display: flex;
+      justify-content: flex-end;
+      gap: 10px;
+      margin-top: 24px;
+    }
+
+    /* Live enrollment banner */
+    .enroll-status-box {
+      background: rgba(16, 185, 129, 0.1);
+      border: 1px solid rgba(16, 185, 129, 0.3);
+      border-radius: 10px;
+      padding: 14px;
+      margin-top: 14px;
+      display: none;
+    }
+    .enroll-status-box.active { display: block; }
+
+    /* Scan Stream cards */
+    .scan-card {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 14px 18px;
+      border-radius: 12px;
+      background: rgba(255, 255, 255, 0.02);
+      border: 1px solid var(--card-border);
+      margin-bottom: 10px;
+      transition: all 0.2s;
+    }
+    .scan-card:hover { background: rgba(255, 255, 255, 0.04); }
+    .scan-card.alert-card { border-left: 4px solid var(--accent-red); background: rgba(239, 68, 68, 0.04); }
+    .scan-card.clear-card { border-left: 4px solid var(--accent-emerald); }
+
+    /* Notification toast */
+    .toast {
+      position: fixed;
+      bottom: 24px;
+      right: 24px;
+      background: #1e293b;
+      color: #fff;
+      border: 1px solid var(--card-border);
+      padding: 14px 20px;
+      border-radius: 10px;
+      box-shadow: 0 10px 25px rgba(0,0,0,0.5);
+      z-index: 200;
+      transform: translateY(100px);
+      opacity: 0;
+      transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+      font-size: 0.85rem;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .toast.show { transform: translateY(0); opacity: 1; }
+  </style>
+</head>
+<body>
+
+  <header>
+    <div class="brand">
+      <div class="brand-icon">🛡️</div>
+      <div>
+        <h1>Smart Classroom Entry System</h1>
+        <p>Biometric Fingerprint + E-Nose Tobacco Breath Screening</p>
+      </div>
+    </div>
+    <div class="header-pills">
+      <div class="pill" id="pill-server"><span class="dot green"></span>Server: Online</div>
+      <div class="pill" id="pill-db"><span class="dot green"></span>Atlas DB: Connected</div>
+      <div class="pill" id="pill-smtp"><span class="dot green"></span>Gmail SMTP: Active</div>
+      <div class="pill" id="pill-time">--:--:--</div>
+    </div>
+  </header>
+
+  <nav class="nav-tabs">
+    <button class="tab-btn active" onclick="switchTab('tab-students')">🎓 Real Students & Fingerprints</button>
+    <button class="tab-btn" onclick="switchTab('tab-scans')">🚪 Live Entry & Screening Stream</button>
+    <button class="tab-btn" onclick="switchTab('tab-attendance')">📊 Daily Attendance & Reports</button>
+    <button class="tab-btn" onclick="switchTab('tab-recipients')">📧 Faculty Alerts & Recipients</button>
+    <button class="tab-btn" onclick="switchTab('tab-simulator')">🧪 Entry Scan Simulator</button>
+    <button class="tab-btn" onclick="switchTab('tab-system')">⚙️ System & Telemetry</button>
+  </nav>
+
+  <main>
+
+    <!-- ================== TAB 1: REAL STUDENTS & FINGERPRINTS ================== -->
+    <div id="tab-students" class="tab-content active">
+      <div class="stats-grid">
+        <div class="stat-card" style="--card-accent: #3b82f6;">
+          <div class="stat-label">Total Registered Students</div>
+          <div class="stat-value" id="stat-student-count">0</div>
+          <div class="stat-sub">Active biometric profiles in database</div>
+        </div>
+        <div class="stat-card" style="--card-accent: #06b6d4;">
+          <div class="stat-label">Next Fingerprint Slot</div>
+          <div class="stat-value" id="stat-next-slot">#1</div>
+          <div class="stat-sub">R307 Sensor capacity: 1000 templates</div>
+        </div>
+        <div class="stat-card" style="--card-accent: #10b981;">
+          <div class="stat-label">Today's Attendance</div>
+          <div class="stat-value" id="stat-today-present">0</div>
+          <div class="stat-sub">Students verified & entered today</div>
+        </div>
+        <div class="stat-card" style="--card-accent: #ef4444;">
+          <div class="stat-label">Today's Breath Alerts</div>
+          <div class="stat-value" id="stat-today-alerts">0</div>
+          <div class="stat-sub">Faculty notified for in-person review</div>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-header">
+          <div class="panel-title">
+            <span>👥 Student Biometric Directory</span>
+            <span class="badge blue" id="badge-total-students">0 students</span>
+          </div>
+          <div style="display:flex;gap:10px;align-items:center;">
+            <input type="text" id="student-search" class="search-input" placeholder="Search by name, roll no, department..." oninput="filterStudents()">
+            <button class="btn emerald" onclick="openEnrollModal()">
+              <span>➕ Enroll Real Student</span>
+            </button>
+          </div>
+        </div>
+
+        <div style="overflow-x:auto;">
+          <table>
+            <thead>
+              <tr>
+                <th>Fingerprint ID</th>
+                <th>Roll Number</th>
+                <th>Full Name</th>
+                <th>Department / Year</th>
+                <th>Contact</th>
+                <th>Status</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody id="students-table-body">
+              <tr><td colspan="7" style="text-align:center;color:var(--text-dim);padding:30px;">Loading student records...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- ================== TAB 2: LIVE ENTRY & SCREENING ================== -->
+    <div id="tab-scans" class="tab-content">
+      <div class="panel">
+        <div class="panel-header">
+          <div class="panel-title">
+            <span>🔴 Real-Time Entry & E-Nose Breath Screening Logs</span>
+          </div>
+          <div style="display:flex;gap:10px;">
+            <button class="btn secondary" onclick="loadScans()">🔄 Refresh</button>
+          </div>
+        </div>
+        <div id="scans-list">
+          <p style="text-align:center;color:var(--text-dim);padding:30px;">Loading live entry stream...</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- ================== TAB 3: DAILY ATTENDANCE & REPORT ================== -->
+    <div id="tab-attendance" class="tab-content">
+      <div class="panel">
+        <div class="panel-header">
+          <div class="panel-title">
+            <span>📅 Daily Attendance & HOD Report</span>
+          </div>
+          <div style="display:flex;gap:10px;align-items:center;">
+            <input type="date" id="attendance-date" class="form-control" style="width:auto;" onchange="loadAttendance()">
+            <button class="btn secondary" onclick="downloadAttendanceCsv()">📥 Download CSV</button>
+            <button class="btn emerald" onclick="triggerSendReport()">✉️ Send Report Now to HOD</button>
+          </div>
+        </div>
+
+        <div class="stats-grid" id="attendance-summary-cards">
+          <!-- Populated by JS -->
+        </div>
+
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-top:20px;">
+          <div>
+            <h3 style="font-size:0.95rem;margin-bottom:12px;color:#34d399;">✅ Present Students</h3>
+            <div style="overflow-x:auto;">
+              <table>
+                <thead>
+                  <tr><th>Roll No</th><th>Name</th><th>Entry Time</th><th>Screening</th></tr>
+                </thead>
+                <tbody id="present-table-body">
+                  <tr><td colspan="4" style="color:var(--text-dim);">No entries yet today</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <div>
+            <h3 style="font-size:0.95rem;margin-bottom:12px;color:#f87171;">❌ Absent Students</h3>
+            <div style="overflow-x:auto;">
+              <table>
+                <thead>
+                  <tr><th>Roll No</th><th>Name</th><th>Dept</th></tr>
+                </thead>
+                <tbody id="absent-table-body">
+                  <tr><td colspan="3" style="color:var(--text-dim);">No absent students</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ================== TAB 4: FACULTY ALERTS & RECIPIENTS ================== -->
+    <div id="tab-recipients" class="tab-content">
+      <div class="panel">
+        <div class="panel-header">
+          <div class="panel-title">
+            <span>📫 Notification Recipients (HOD & Faculty)</span>
+          </div>
+          <div style="display:flex;gap:10px;">
+            <button class="btn amber" onclick="testEmail()">🧪 Test Gmail SMTP Notification</button>
+            <button class="btn emerald" onclick="openRecipientModal()">➕ Add Recipient</button>
+          </div>
+        </div>
+        <table>
+          <thead>
+            <tr>
+              <th>Name</th>
+              <th>Email</th>
+              <th>Role</th>
+              <th>Receive Breath Alerts</th>
+              <th>Receive Daily Reports</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody id="recipients-table-body">
+            <tr><td colspan="6" style="text-align:center;padding:20px;color:var(--text-dim);">Loading recipients...</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- ================== TAB 5: SCANNER SIMULATOR ================== -->
+    <div id="tab-simulator" class="tab-content">
+      <div class="panel" style="max-width:700px;margin:0 auto;">
+        <div class="panel-header">
+          <div class="panel-title">
+            <span>🧪 Entry & Screening Pipeline Simulator</span>
+          </div>
+        </div>
+        <p style="font-size:0.85rem;color:var(--text-muted);margin-bottom:20px;">
+          Use this simulator to test how the classroom entry and breath detection pipeline responds. You can test a normal <b>CLEAR</b> entry or trigger a tobacco <b>ALERT</b> to verify that instant Gmail emails are delivered to the faculty and HOD.
+        </p>
+
+        <div class="form-group">
+          <label class="form-label">Select Student</label>
+          <select id="sim-student-select" class="form-control">
+            <option value="">-- Choose Registered Student --</option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Screening Condition</label>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+            <div class="enroll-option-card selected" id="sim-opt-clear" onclick="selectSimMode('CLEAR')">
+              <h4 style="color:#34d399;">🟢 Normal / CLEAR</h4>
+              <p>Clean breath. Welcome screen & attendance recorded.</p>
+            </div>
+            <div class="enroll-option-card" id="sim-opt-alert" onclick="selectSimMode('ALERT')">
+              <h4 style="color:#f87171;">🔴 Elevated / ALERT</h4>
+              <p>Simulates tobacco VOC detection. Triggers instant email alert!</p>
+            </div>
+          </div>
+        </div>
+
+        <button class="btn" style="width:100%;padding:12px;" onclick="runSimulation()">🚀 Simulate Entry Scan</button>
+        <div id="sim-result" style="margin-top:16px;display:none;padding:14px;border-radius:10px;background:rgba(255,255,255,0.05);font-size:0.85rem;"></div>
+      </div>
+    </div>
+
+    <!-- ================== TAB 6: SYSTEM & TELEMETRY ================== -->
+    <div id="tab-system" class="tab-content">
+      <div class="panel">
+        <div class="panel-header">
+          <div class="panel-title">
+            <span>🛰️ IoT Hardware & Backend Telemetry</span>
+          </div>
+          <button class="btn secondary" onclick="loadSystemInfo()">🔄 Refresh Status</button>
+        </div>
+        <div id="system-details" style="display:grid;grid-template-columns:repeat(auto-fit, minmax(280px, 1fr));gap:16px;">
+          <!-- Telemetry cards -->
+        </div>
+      </div>
+    </div>
+
+  </main>
+
+  <!-- ================== MODAL: ENROLL REAL STUDENT ================== -->
+  <div class="modal-backdrop" id="enroll-modal">
+    <div class="modal">
+      <div class="modal-title">Enroll Real Student Fingerprint</div>
+      <div class="modal-sub">Link a real student's profile to an R307 fingerprint slot</div>
+
+      <div class="form-group">
+        <label class="form-label">Full Name *</label>
+        <input type="text" id="enroll-name" class="form-control" placeholder="e.g. Dinesh Kumar">
+      </div>
+
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">Roll Number *</label>
+          <input type="text" id="enroll-roll" class="form-control" placeholder="e.g. 23MCA101">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Fingerprint Slot ID (1-1000) *</label>
+          <div style="display:flex;gap:6px;">
+            <input type="number" id="enroll-slot" class="form-control" min="1" max="1000" placeholder="1">
+            <button class="btn secondary" type="button" onclick="suggestNextSlot()" title="Auto-find next free slot">Auto</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">Department</label>
+          <input type="text" id="enroll-dept" class="form-control" placeholder="e.g. MCA, CSE">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Year / Section</label>
+          <input type="text" id="enroll-year" class="form-control" placeholder="e.g. II - A">
+        </div>
+      </div>
+
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">Student Email</label>
+          <input type="email" id="enroll-email" class="form-control" placeholder="student@college.edu">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Phone</label>
+          <input type="tel" id="enroll-phone" class="form-control" placeholder="9876543210">
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Enrollment Method</label>
+        <div class="enroll-option-card selected" id="opt-method-direct" onclick="selectMethod('direct')">
+          <h4>✅ Direct Database Profile Registration</h4>
+          <p>Instantly registers the student with this slot ID (Use if already enrolled on R307 or entering record).</p>
+        </div>
+        <div class="enroll-option-card" id="opt-method-hardware" onclick="selectMethod('hardware')">
+          <h4>📡 Trigger R307 Sensor Enrollment (OTA)</h4>
+          <p>Sends command to ESP32: OLED will prompt student to place their finger on the R307 module.</p>
+        </div>
+      </div>
+
+      <div class="enroll-status-box" id="enroll-live-status">
+        <div style="font-weight:600;font-size:0.85rem;" id="enroll-status-title">⏳ Waiting for student finger...</div>
+        <div style="font-size:0.75rem;color:var(--text-muted);margin-top:4px;" id="enroll-status-desc">Follow OLED prompts on the device</div>
+      </div>
+
+      <div class="modal-actions">
+        <button class="btn secondary" onclick="closeEnrollModal()">Cancel</button>
+        <button class="btn emerald" id="btn-submit-enroll" onclick="submitEnrollment()">Save Student Record</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ================== MODAL: ADD RECIPIENT ================== -->
+  <div class="modal-backdrop" id="recipient-modal">
+    <div class="modal">
+      <div class="modal-title">Add Alert / Report Recipient</div>
+      <div class="modal-sub">Add HOD or Faculty email to receive breath alerts and daily reports</div>
+
+      <div class="form-group">
+        <label class="form-label">Recipient Name</label>
+        <input type="text" id="rec-name" class="form-control" placeholder="e.g. Dr. HOD">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Email Address *</label>
+        <input type="email" id="rec-email" class="form-control" placeholder="hod@college.edu">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Role</label>
+        <select id="rec-role" class="form-control">
+          <option value="FACULTY">Faculty Member</option>
+          <option value="HOD">Head of Department (HOD)</option>
+        </select>
+      </div>
+      <div style="margin-bottom:16px;">
+        <label style="display:flex;align-items:center;gap:8px;font-size:0.85rem;cursor:pointer;margin-bottom:8px;">
+          <input type="checkbox" id="rec-alerts" checked> Receive Instant Tobacco Screening Alerts
+        </label>
+        <label style="display:flex;align-items:center;gap:8px;font-size:0.85rem;cursor:pointer;">
+          <input type="checkbox" id="rec-reports" checked> Receive Daily Attendance Summary Reports
+        </label>
+      </div>
+
+      <div class="modal-actions">
+        <button class="btn secondary" onclick="closeRecipientModal()">Cancel</button>
+        <button class="btn emerald" onclick="saveRecipient()">Save Recipient</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="toast" id="toast">🔔 Notification message</div>
+
+  <script>
+    const ADMIN_KEY = '6077b1e89d6b5c00ec78654d749f3e8100be16a45cf98258';
+    let allStudents = [];
+    let enrollmentMethod = 'direct';
+    let simMode = 'CLEAR';
+    let enrollPollTimer = null;
+
+    function showToast(msg, isErr = false) {
+      const t = document.getElementById('toast');
+      t.textContent = msg;
+      t.style.borderLeft = isErr ? '4px solid #ef4444' : '4px solid #10b981';
+      t.classList.add('show');
+      setTimeout(() => t.classList.remove('show'), 3500);
+    }
+
+    function switchTab(tabId) {
+      document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
+      document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('active'));
+      const target = document.getElementById(tabId);
+      if (target) target.classList.add('active');
+      const btn = Array.from(document.querySelectorAll('.tab-btn')).find(b => b.getAttribute('onclick').includes(tabId));
+      if (btn) btn.classList.add('active');
+
+      if (tabId === 'tab-students') loadStudents();
+      if (tabId === 'tab-scans') loadScans();
+      if (tabId === 'tab-attendance') loadAttendance();
+      if (tabId === 'tab-recipients') loadRecipients();
+      if (tabId === 'tab-system') loadSystemInfo();
+      if (tabId === 'tab-simulator') populateSimulatorStudents();
+    }
+
+    async function apiFetch(url, options = {}) {
+      options.headers = {
+        'Content-Type': 'application/json',
+        'x-admin-key': ADMIN_KEY,
+        ...(options.headers || {})
+      };
+      const res = await fetch(url, options);
+      return res.json();
+    }
+
+    // ---------- STUDENTS & FINGERPRINTS ----------
+    async function loadStudents() {
+      try {
+        const students = await apiFetch('/api/students');
+        allStudents = students || [];
+        renderStudentsTable(allStudents);
+        document.getElementById('stat-student-count').textContent = allStudents.length;
+        document.getElementById('badge-total-students').textContent = `${allStudents.length} students`;
+        suggestNextSlot();
+      } catch (e) {
+        console.error(e);
+        showToast('Failed to load students: ' + e.message, true);
+      }
+    }
+
+    function renderStudentsTable(list) {
+      const tbody = document.getElementById('students-table-body');
+      if (!list.length) {
+        tbody.innerHTML = `<tr><td colspan="7" style="text-align:center;color:var(--text-dim);padding:30px;">
+          No students registered yet. Click <b>"Enroll Real Student"</b> above to add your first student fingerprint!
+        </td></tr>`;
+        return;
+      }
+      tbody.innerHTML = list.map(s => `
+        <tr>
+          <td><span class="fp-badge">#${s.fingerprintId}</span></td>
+          <td style="font-weight:600;font-family:var(--font-mono);">${s.rollNo}</td>
+          <td style="font-weight:600;">${s.name}</td>
+          <td>${s.department || '-'} ${s.year ? '(' + s.year + ')' : ''}</td>
+          <td style="font-size:0.75rem;color:var(--text-muted);">${s.email || '-'}<br>${s.phone || ''}</td>
+          <td>${s.active ? '<span class="badge green">Active</span>' : '<span class="badge gray">Inactive</span>'}</td>
+          <td>
+            <div style="display:flex;gap:6px;">
+              <button class="btn secondary" style="padding:4px 8px;font-size:0.75rem;" onclick="quickSimulateScan(${s.fingerprintId})" title="Test this student entry">🧪 Test</button>
+              <button class="btn red" style="padding:4px 8px;font-size:0.75rem;" onclick="deleteStudent('${s._id}', '${s.name}')" title="Delete record">🗑️</button>
+            </div>
+          </td>
+        </tr>
+      `).join('');
+    }
+
+    function filterStudents() {
+      const q = (document.getElementById('student-search').value || '').toLowerCase().trim();
+      if (!q) return renderStudentsTable(allStudents);
+      const filtered = allStudents.filter(s =>
+        (s.name || '').toLowerCase().includes(q) ||
+        (s.rollNo || '').toLowerCase().includes(q) ||
+        (s.department || '').toLowerCase().includes(q) ||
+        String(s.fingerprintId).includes(q)
+      );
+      renderStudentsTable(filtered);
+    }
+
+    async function suggestNextSlot() {
+      try {
+        const data = await apiFetch('/api/students/next-slot');
+        if (data && data.nextSlot) {
+          document.getElementById('stat-next-slot').textContent = `#${data.nextSlot}`;
+          const input = document.getElementById('enroll-slot');
+          if (!input.value) input.value = data.nextSlot;
+        }
+      } catch (e) { console.error(e); }
+    }
+
+    function openEnrollModal() {
+      suggestNextSlot();
+      document.getElementById('enroll-modal').classList.add('open');
+      document.getElementById('enroll-live-status').classList.remove('active');
+      document.getElementById('btn-submit-enroll').disabled = false;
+      document.getElementById('btn-submit-enroll').textContent = 'Save Student Record';
+    }
+
+    function closeEnrollModal() {
+      document.getElementById('enroll-modal').classList.remove('open');
+      if (enrollPollTimer) clearInterval(enrollPollTimer);
+    }
+
+    function selectMethod(method) {
+      enrollmentMethod = method;
+      document.getElementById('opt-method-direct').classList.toggle('selected', method === 'direct');
+      document.getElementById('opt-method-hardware').classList.toggle('selected', method === 'hardware');
+      const btn = document.getElementById('btn-submit-enroll');
+      btn.textContent = method === 'hardware' ? '📡 Start Hardware Enrollment' : 'Save Student Record';
+    }
+
+    async function submitEnrollment() {
+      const name = document.getElementById('enroll-name').value.trim();
+      const rollNo = document.getElementById('enroll-roll').value.trim();
+      const fingerprintId = parseInt(document.getElementById('enroll-slot').value, 10);
+      const department = document.getElementById('enroll-dept').value.trim();
+      const year = document.getElementById('enroll-year').value.trim();
+      const email = document.getElementById('enroll-email').value.trim();
+      const phone = document.getElementById('enroll-phone').value.trim();
+
+      if (!name || !rollNo || isNaN(fingerprintId) || fingerprintId < 1) {
+        showToast('Please enter full name, roll number, and valid fingerprint slot ID (1-1000).', true);
+        return;
+      }
+
+      if (enrollmentMethod === 'hardware') {
+        try {
+          const btn = document.getElementById('btn-submit-enroll');
+          btn.disabled = true;
+          const statusBox = document.getElementById('enroll-live-status');
+          statusBox.classList.add('active');
+          document.getElementById('enroll-status-title').textContent = '📡 Sending enrollment trigger to ESP32...';
+          document.getElementById('enroll-status-desc').textContent = 'Ensure ESP32 is powered on and connected to Wi-Fi.';
+
+          const res = await apiFetch('/api/students/enroll-request', {
+            method: 'POST',
+            body: JSON.stringify({ fingerprintId, rollNo, name, department, year, email, phone })
+          });
+
+          if (res.error) throw new Error(res.error);
+
+          document.getElementById('enroll-status-title').textContent = `👉 Place finger on R307 sensor for Slot #${fingerprintId}`;
+          document.getElementById('enroll-status-desc').textContent = 'Watch OLED screen: Place finger, remove, place again.';
+
+          const cmdId = res.commandId;
+          let attempts = 0;
+          enrollPollTimer = setInterval(async () => {
+            attempts++;
+            if (attempts > 60) {
+              clearInterval(enrollPollTimer);
+              document.getElementById('enroll-status-title').textContent = '⚠️ Timed out waiting for sensor.';
+              btn.disabled = false;
+              return;
+            }
+            try {
+              const check = await apiFetch(`/api/students/enroll-status/${cmdId}`);
+              if (check.status === 'COMPLETED') {
+                clearInterval(enrollPollTimer);
+                document.getElementById('enroll-status-title').textContent = '🎉 Fingerprint Enrolled Successfully!';
+                document.getElementById('enroll-status-desc').textContent = `Slot #${fingerprintId} stored inside R307.`;
+                showToast(`Enrolled ${name} successfully!`);
+                setTimeout(() => { closeEnrollModal(); loadStudents(); }, 1800);
+              } else if (check.status === 'FAILED') {
+                clearInterval(enrollPollTimer);
+                document.getElementById('enroll-status-title').textContent = '❌ Sensor enrollment failed or cancelled.';
+                btn.disabled = false;
+              }
+            } catch (e) {}
+          }, 1500);
+
+        } catch (err) {
+          showToast(err.message, true);
+          document.getElementById('btn-submit-enroll').disabled = false;
+        }
+      } else {
+        // Direct registration
+        try {
+          const res = await apiFetch('/api/students', {
+            method: 'POST',
+            body: JSON.stringify({ fingerprintId, rollNo, name, department, year, email, phone, active: true })
+          });
+          if (res.error) throw new Error(res.error);
+          showToast(`Student ${name} registered with Fingerprint #${fingerprintId}!`);
+          closeEnrollModal();
+          loadStudents();
+        } catch (err) {
+          showToast(err.message, true);
+        }
+      }
+    }
+
+    async function deleteStudent(id, name) {
+      if (!confirm(`Delete or deactivate student "${name}"?`)) return;
+      try {
+        await apiFetch(`/api/students/${id}?hard=true`, { method: 'DELETE' });
+        showToast(`Student ${name} deleted.`);
+        loadStudents();
+      } catch (e) {
+        showToast(e.message, true);
+      }
+    }
+
+    // ---------- LIVE SCANS ----------
+    async function loadScans() {
+      try {
+        const scans = await apiFetch('/api/scans?limit=50');
+        const container = document.getElementById('scans-list');
+        if (!scans || !scans.length) {
+          container.innerHTML = '<p style="text-align:center;color:var(--text-dim);padding:30px;">No scan events recorded yet today.</p>';
+          return;
+        }
+        container.innerHTML = scans.map(s => {
+          const isAlert = s.status === 'ALERT';
+          const isClear = s.status === 'CLEAR';
+          const badgeClass = isAlert ? 'red' : (isClear ? 'green' : 'gray');
+          const time = new Date(s.scannedAt).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+          return `
+            <div class="scan-card ${isAlert ? 'alert-card' : (isClear ? 'clear-card' : '')}">
+              <div style="display:flex;align-items:center;gap:14px;">
+                <span style="font-size:1.5rem;">${isAlert ? '🚨' : (isClear ? '✅' : '❓')}</span>
+                <div>
+                  <div style="font-weight:700;font-size:0.95rem;">${s.name || 'Unknown Student'} <span style="font-family:var(--font-mono);font-size:0.8rem;color:var(--text-muted);">(${s.rollNo || 'FP#' + s.fingerprintId})</span></div>
+                  <div style="font-size:0.75rem;color:var(--text-dim);margin-top:2px;">
+                    Device: ${s.deviceId || 'CLASSROOM-101'} &bull; Time: ${time}
+                    ${s.readings ? ` &bull; MQ-135: +${s.readings.mq135 || 0} &bull; MQ-2: +${s.readings.mq2 || 0} &bull; MQ-7: +${s.readings.mq7 || 0}` : ''}
+                  </div>
+                </div>
+              </div>
+              <div style="text-align:right;">
+                <span class="badge ${badgeClass}">${s.status}</span>
+                ${s.score !== undefined ? `<div style="font-size:0.72rem;color:var(--text-dim);margin-top:4px;">Score: ${s.score.toFixed(2)}</div>` : ''}
+              </div>
+            </div>
+          `;
+        }).join('');
+      } catch (e) { console.error(e); }
+    }
+
+    // ---------- ATTENDANCE & REPORT ----------
+    async function loadAttendance() {
+      const dateInput = document.getElementById('attendance-date');
+      if (!dateInput.value) {
+        dateInput.value = new Date().toISOString().split('T')[0];
+      }
+      try {
+        const report = await apiFetch(`/api/attendance?date=${dateInput.value}`);
+        if (!report) return;
+        const s = report.summary;
+        document.getElementById('stat-today-present').textContent = s.present;
+        document.getElementById('stat-today-alerts').textContent = s.flagged;
+
+        const summaryCards = document.getElementById('attendance-summary-cards');
+        summaryCards.innerHTML = `
+          <div class="stat-card" style="--card-accent:#3b82f6;"><div class="stat-label">Total Enrolled</div><div class="stat-value">${s.total}</div></div>
+          <div class="stat-card" style="--card-accent:#10b981;"><div class="stat-label">Present</div><div class="stat-value">${s.present}</div></div>
+          <div class="stat-card" style="--card-accent:#f59e0b;"><div class="stat-label">Late Arrivals</div><div class="stat-value">${s.late}</div></div>
+          <div class="stat-card" style="--card-accent:#ef4444;"><div class="stat-label">Screening Flags</div><div class="stat-value">${s.flagged}</div></div>
+        `;
+
+        const presentBody = document.getElementById('present-table-body');
+        if (!report.present.length) {
+          presentBody.innerHTML = '<tr><td colspan="4" style="color:var(--text-dim);padding:14px;">No students entered yet for this date.</td></tr>';
+        } else {
+          presentBody.innerHTML = report.present.map(p => `
+            <tr>
+              <td style="font-family:var(--font-mono);">${p.rollNo}</td>
+              <td style="font-weight:600;">${p.name}</td>
+              <td>${p.firstEntry} ${p.late ? '<span class="badge amber" style="font-size:0.65rem;">Late</span>' : ''}</td>
+              <td>${p.flagged ? '<span class="badge red">FLAGGED</span>' : '<span class="badge green">CLEAR</span>'}</td>
+            </tr>
+          `).join('');
+        }
+
+        const absentBody = document.getElementById('absent-table-body');
+        if (!report.absent.length) {
+          absentBody.innerHTML = '<tr><td colspan="3" style="color:var(--text-dim);padding:14px;">100% Attendance! No absentees.</td></tr>';
+        } else {
+          absentBody.innerHTML = report.absent.map(a => `
+            <tr>
+              <td style="font-family:var(--font-mono);">${a.rollNo}</td>
+              <td>${a.name}</td>
+              <td>${a.department || '-'}</td>
+            </tr>
+          `).join('');
+        }
+      } catch (e) { console.error(e); }
+    }
+
+    function downloadAttendanceCsv() {
+      const d = document.getElementById('attendance-date').value || '';
+      window.open(`/api/attendance/csv?date=${d}&key=${ADMIN_KEY}`, '_blank');
+    }
+
+    async function triggerSendReport() {
+      const d = document.getElementById('attendance-date').value || '';
+      try {
+        const res = await apiFetch('/api/reports/send', { method: 'POST', body: JSON.stringify({ date: d }) });
+        if (res.sent) {
+          showToast(`Report emailed successfully to: ${res.to.join(', ')}`);
+        } else {
+          showToast('Email not sent: verify SMTP credentials in .env', true);
+        }
+      } catch (e) {
+        showToast(e.message, true);
+      }
+    }
+
+    // ---------- RECIPIENTS ----------
+    async function loadRecipients() {
+      try {
+        const list = await apiFetch('/api/recipients');
+        const tbody = document.getElementById('recipients-table-body');
+        if (!list || !list.length) {
+          tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;padding:20px;color:var(--text-dim);">No custom recipients. Falling back to HOD_EMAIL in .env</td></tr>';
+          return;
+        }
+        tbody.innerHTML = list.map(r => `
+          <tr>
+            <td style="font-weight:600;">${r.name || '-'}</td>
+            <td style="font-family:var(--font-mono);">${r.email}</td>
+            <td><span class="badge blue">${r.role}</span></td>
+            <td>${r.receiveAlerts ? '✅ Yes' : '❌ No'}</td>
+            <td>${r.receiveReports ? '✅ Yes' : '❌ No'}</td>
+            <td>
+              <button class="btn red" style="padding:4px 8px;font-size:0.75rem;" onclick="deleteRecipient('${r._id}')">🗑️</button>
+            </td>
+          </tr>
+        `).join('');
+      } catch (e) { console.error(e); }
+    }
+
+    function openRecipientModal() {
+      document.getElementById('recipient-modal').classList.add('open');
+    }
+    function closeRecipientModal() {
+      document.getElementById('recipient-modal').classList.remove('open');
+    }
+    async function saveRecipient() {
+      const name = document.getElementById('rec-name').value.trim();
+      const email = document.getElementById('rec-email').value.trim();
+      const role = document.getElementById('rec-role').value;
+      const receiveAlerts = document.getElementById('rec-alerts').checked;
+      const receiveReports = document.getElementById('rec-reports').checked;
+      if (!email) return showToast('Email address is required', true);
+      try {
+        await apiFetch('/api/recipients', {
+          method: 'POST',
+          body: JSON.stringify({ name, email, role, receiveAlerts, receiveReports })
+        });
+        showToast('Recipient added successfully!');
+        closeRecipientModal();
+        loadRecipients();
+      } catch (e) { showToast(e.message, true); }
+    }
+
+    async function deleteRecipient(id) {
+      if (!confirm('Remove this recipient?')) return;
+      try {
+        await apiFetch(`/api/recipients/${id}`, { method: 'DELETE' });
+        showToast('Recipient removed');
+        loadRecipients();
+      } catch (e) { showToast(e.message, true); }
+    }
+
+    async function testEmail() {
+      try {
+        showToast('Sending test email via Gmail SMTP...');
+        const res = await apiFetch('/api/mail/test', { method: 'POST' });
+        if (res.ok) {
+          showToast(`Test email delivered to: ${res.recipients.join(', ')}`);
+        } else {
+          showToast('Email sending failed. Check backend console.', true);
+        }
+      } catch (e) { showToast(e.message, true); }
+    }
+
+    // ---------- SIMULATOR ----------
+    function populateSimulatorStudents() {
+      const select = document.getElementById('sim-student-select');
+      select.innerHTML = '<option value="">-- Choose Registered Student --</option>' +
+        allStudents.map(s => `<option value="${s.fingerprintId}">#${s.fingerprintId} - ${s.name} (${s.rollNo})</option>`).join('');
+    }
+
+    function selectSimMode(mode) {
+      simMode = mode;
+      document.getElementById('sim-opt-clear').classList.toggle('selected', mode === 'CLEAR');
+      document.getElementById('sim-opt-alert').classList.toggle('selected', mode === 'ALERT');
+    }
+
+    async function runSimulation() {
+      const fpId = document.getElementById('sim-student-select').value;
+      if (!fpId) return showToast('Please select a student to simulate', true);
+      try {
+        showToast('Running entry simulation...');
+        const res = await apiFetch('/api/simulate/scan', {
+          method: 'POST',
+          body: JSON.stringify({ fingerprintId: fpId, status: simMode })
+        });
+        const box = document.getElementById('sim-result');
+        box.style.display = 'block';
+        box.innerHTML = `
+          <div style="font-weight:700;color:${simMode === 'ALERT' ? '#f87171' : '#34d399'};margin-bottom:6px;">
+            ${simMode === 'ALERT' ? '🚨 TOBACCO VOC ALERT SIMULATED!' : '✅ CLEAR ENTRY SIMULATED!'}
+          </div>
+          <div><b>Student:</b> ${res.student ? res.student.name : 'Unknown'} (${res.student ? res.student.rollNo : ''})</div>
+          <div><b>Score:</b> ${res.scan.score.toFixed(2)} | <b>Readings:</b> MQ-135: +${res.scan.readings.mq135}, MQ-2: +${res.scan.readings.mq2}, MQ-7: +${res.scan.readings.mq7}</div>
+          <div style="margin-top:6px;font-size:0.75rem;color:var(--text-muted);">
+            ${simMode === 'ALERT' ? 'Instant alert email sent to faculty & HOD inbox!' : 'Attendance marked as Present.'}
+          </div>
+        `;
+        showToast(`Simulation recorded as ${simMode}!`);
+        loadScans();
+        loadAttendance();
+      } catch (e) { showToast(e.message, true); }
+    }
+
+    async function quickSimulateScan(fpId) {
+      switchTab('tab-simulator');
+      document.getElementById('sim-student-select').value = fpId;
+    }
+
+    // ---------- SYSTEM & TELEMETRY ----------
+    async function loadSystemInfo() {
+      try {
+        const sys = await apiFetch('/api/system/status');
+        const container = document.getElementById('system-details');
+        const smtpOk = sys.smtp && sys.smtp.ok;
+        container.innerHTML = `
+          <div class="stat-card" style="--card-accent:#10b981;">
+            <div class="stat-label">MongoDB Atlas Status</div>
+            <div class="stat-value" style="font-size:1.4rem;color:#34d399;">Connected</div>
+            <div class="stat-sub">Cluster: cluster0.kflscbl.mongodb.net</div>
+          </div>
+          <div class="stat-card" style="--card-accent:${smtpOk ? '#10b981' : '#ef4444'};">
+            <div class="stat-label">Gmail SMTP Service</div>
+            <div class="stat-value" style="font-size:1.4rem;color:${smtpOk ? '#34d399' : '#f87171'};">${smtpOk ? 'Verified' : 'Error'}</div>
+            <div class="stat-sub">${sys.smtp ? (sys.smtp.host + ':' + sys.smtp.port) : 'Check credentials'}</div>
+          </div>
+          <div class="stat-card" style="--card-accent:#3b82f6;">
+            <div class="stat-label">System Time</div>
+            <div class="stat-value" style="font-size:1.2rem;">${sys.localTime || ''}</div>
+            <div class="stat-sub">Timezone: ${sys.timezone}</div>
+          </div>
+          <div class="stat-card" style="--card-accent:#06b6d4;">
+            <div class="stat-label">Hardware Sensor Health</div>
+            <div class="stat-value" style="font-size:1.4rem;">${sys.latestTelemetry ? 'Active' : 'Awaiting Boot'}</div>
+            <div class="stat-sub">${sys.latestTelemetry ? ('Temp: ' + (sys.latestTelemetry.temperature || '--') + '°C | Hum: ' + (sys.latestTelemetry.humidity || '--') + '%') : 'Waiting for telemetry POST'}</div>
+          </div>
+        `;
+      } catch (e) { console.error(e); }
+    }
+
+    // Live clock
+    setInterval(() => {
+      document.getElementById('pill-time').textContent = new Date().toLocaleTimeString('en-IN');
+    }, 1000);
+
+    // Initial load
+    window.addEventListener('DOMContentLoaded', () => {
+      loadStudents();
+      loadAttendance();
+      loadSystemInfo();
+      // Auto refresh scans every 15s
+      setInterval(() => {
+        if (document.getElementById('tab-scans').classList.contains('active')) loadScans();
+      }, 15000);
+    });
+  </script>
+</body>
+</html>

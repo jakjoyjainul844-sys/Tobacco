@@ -9,6 +9,7 @@ const studentSchema = new Schema({
   year: { type: String, default: '' },
   section: { type: String, default: '' },
   email: { type: String, default: '', lowercase: true, trim: true },
+  phone: { type: String, default: '', trim: true },
   active: { type: Boolean, default: true }
 }, { timestamps: true });
 
@@ -43,9 +44,19 @@ const telemetrySchema = new Schema({
   createdAt: { type: Date, default: Date.now, expires: 60 * 60 * 24 * 30 }   // auto-delete after 30 days
 });
 
+const deviceCommandSchema = new Schema({
+  deviceId: { type: String, default: 'CLASSROOM-101' },
+  command: { type: String, required: true }, // 'enroll', 'delete', 'sync'
+  payload: { type: Schema.Types.Mixed, default: {} },
+  status: { type: String, enum: ['PENDING', 'IN_PROGRESS', 'COMPLETED', 'FAILED'], default: 'PENDING' },
+  result: { type: Schema.Types.Mixed, default: null },
+  createdAt: { type: Date, default: Date.now, expires: 600 }
+});
+
 module.exports = {
   Student: mongoose.model('Student', studentSchema),
   Recipient: mongoose.model('Recipient', recipientSchema),
   Scan: mongoose.model('Scan', scanSchema),
-  Telemetry: mongoose.model('Telemetry', telemetrySchema)
+  Telemetry: mongoose.model('Telemetry', telemetrySchema),
+  DeviceCommand: mongoose.model('DeviceCommand', deviceCommandSchema)
 };

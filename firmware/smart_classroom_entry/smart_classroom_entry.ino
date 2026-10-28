@@ -21,17 +21,20 @@
 #include <DHT.h>
 #include <ArduinoJson.h>
 
-
-
 #pragma once
 // ============================================================
-//  config.h  -  edit this file only. Do NOT commit real passwords.
+//  Smart Classroom Entry System Hardware Configuration
+//  Edit this file only for hardware, Wi-Fi, and backend connection.
 // ============================================================
 
 // ---------- Wi-Fi / Server ----------
+// Hotspot / Wi-Fi credentials
 #define WIFI_SSID        "Redmi 13 5G"
 #define WIFI_PASS        "dinesh26"
-// Use http://<PC-LAN-IP>:5000 for a local server, or https://your-host for cloud
+
+// Choose your server URL:
+// For cloud Render: "https://tobacco-mvul.onrender.com"
+// For local PC:     "http://192.168.1.50:5000" (replace with PC LAN IP)
 #define SERVER_URL       "https://tobacco-mvul.onrender.com"
 #define API_KEY          "6077b1e89d6b5c00ec78654d749f3e8100be16a45cf98258"      // must equal DEVICE_API_KEY in backend/.env
 #define DEVICE_ID        "CLASSROOM-101"
@@ -48,10 +51,10 @@
 #define PIN_FP_TX   17    // ESP32 TX2  -> R307 RX
 #define PIN_SDA     21
 #define PIN_SCL     22
-#define PIN_LED_R   14
-#define PIN_LED_G   13
+#define PIN_LED_R   13
+#define PIN_LED_G   14
 #define PIN_LED_B   25    // GPIO12 is a boot-strapping pin; 25 is safer for the blue LED
-#define PIN_BUZZER  27    // active buzzer (use a transistor if it draws > 12 mA)
+#define PIN_BUZZER  27    // active buzzer
 #define PIN_PUMP    26    // optional 6V pump via transistor/MOSFET + flyback diode
 
 #define OLED_ADDR           0x3C
@@ -66,9 +69,9 @@
 #define WARMUP_SECONDS      60    // use 180+ for real use; new MQ sensors need 24-48 h burn-in
 #define SAMPLE_MS           6000  // breath sampling window
 #define TELEMETRY_MS        60000UL
+#define COMMAND_POLL_MS     4000UL // Poll server for pending enroll/admin commands
 
 // ---------- Detection thresholds (ADC counts above baseline, 0-4095 scale) ----------
-// START VALUES ONLY - calibrate with the 'raw' serial command (see README section 9)
 #define TH_MQ135            150
 #define TH_MQ2              200
 #define TH_MQ7              120
@@ -92,6 +95,7 @@ float lastTemp = NAN, lastHum = NAN, lastDist = -1;
 uint8_t failCount = 0;
 uint32_t lastTelemetry = 0, lastIdleDraw = 0, lastBaseline = 0, lastWifiTry = 0;
 uint32_t lastPresence = 0, lastDistCheck = 0, lastEnvRead = 0, lastQueueTry = 0, lastFpRetry = 0;
+uint32_t lastCmdPoll = 0;
 
 struct BreathResult {
   int d135, d2, d7;
@@ -224,7 +228,7 @@ int postJson(const String &path, const String &body, String *resp = nullptr) {
   WiFiClient plain;
   WiFiClientSecure secure;
   if (url.startsWith("https")) {
-    secure.setInsecure();   // OK for a college project; pin a CA certificate for production
+    secure.setInsecure();   // Insecure OK for college project
     http.begin(secure, url);
   } else {
     http.begin(plain, url);
@@ -233,6 +237,26 @@ int postJson(const String &path, const String &body, String *resp = nullptr) {
   http.addHeader("Content-Type", "application/json");
   http.addHeader("x-api-key", API_KEY);
   int code = http.POST(body);
+  if (resp && code > 0) *resp = http.getString();
+  http.end();
+  return code;
+}
+
+int getJson(const String &path, String *resp = nullptr) {
+  if (WiFi.status() != WL_CONNECTED) return -1;
+  String url = String(SERVER_URL) + path;
+  HTTPClient http;
+  WiFiClient plain;
+  WiFiClientSecure secure;
+  if (url.startsWith("https")) {
+    secure.setInsecure();
+    http.begin(secure, url);
+  } else {
+    http.begin(plain, url);
+  }
+  http.setTimeout(4000);
+  http.addHeader("x-api-key", API_KEY);
+  int code = http.GET();
   if (resp && code > 0) *resp = http.getString();
   http.end();
   return code;
@@ -340,15 +364,80 @@ void waitFingerRemoved(uint32_t timeoutMs = 8000) {
 
 bool enrollFingerprint(uint16_t id) {
   setDisplay(true);
+  setLed(0, 0, 1); // Blue indicator
   showBig("Enroll #" + String(id), "Place finger");
+  beep(80);
   if (!captureToSlot(1)) return false;
+
+  beep(60);
   showBig("Remove", "finger");
   delay(1200);
   waitFingerRemoved(5000);
+
+  beep(80);
   showBig("Same finger", "Place again");
   if (!captureToSlot(2)) return false;
+
   if (finger.createModel() != FINGERPRINT_OK) return false;     // two scans did not match
-  return finger.storeModel(id) == FINGERPRINT_OK;
+  bool stored = (finger.storeModel(id) == FINGERPRINT_OK);
+  return stored;
+}
+
+// ---------------- Remote OTA Command Polling ----------------
+void checkRemoteCommand() {
+  if (WiFi.status() != WL_CONNECTED || !r307Ok) return;
+  if (millis() - lastCmdPoll < COMMAND_POLL_MS) return;
+  lastCmdPoll = millis();
+
+  String resp;
+  int code = getJson("/api/device/command", &resp);
+  if (code == 200 && resp.length() > 0) {
+    JsonDocument doc;
+    DeserializationError err = deserializeJson(doc, resp);
+    if (!err && doc["hasCommand"] == true) {
+      String cmdId = doc["commandId"].as<String>();
+      String cmd = doc["command"].as<String>();
+      JsonObject payload = doc["payload"].as<JsonObject>();
+
+      if (cmd == "enroll") {
+        int slot = payload["fingerprintId"] | 0;
+        String sName = payload["name"] | ("ID #" + String(slot));
+        Serial.printf("[OTA ENROLL] Request for Slot #%d (%s)\n", slot, sName.c_str());
+
+        setDisplay(true);
+        setLed(0, 0, 1);
+        showBig("ENROLLING", sName.substring(0, 18));
+        delay(1200);
+
+        bool success = enrollFingerprint(slot);
+
+        JsonDocument resDoc;
+        resDoc["commandId"] = cmdId;
+        resDoc["command"] = "enroll";
+        resDoc["fingerprintId"] = slot;
+        resDoc["success"] = success;
+        resDoc["message"] = success ? "Fingerprint template stored successfully in R307" : "Sensor enrollment failed";
+        String resStr;
+        serializeJson(resDoc, resStr);
+
+        postJson("/api/device/command-result", resStr);
+
+        if (success) {
+          setLed(0, 1, 0); // Green
+          beep(200);
+          showBig("SUCCESS!", "Slot #" + String(slot) + " Saved");
+          Serial.printf("[OTA ENROLL] Successfully enrolled Slot #%d\n", slot);
+        } else {
+          setLed(1, 0, 0); // Red
+          beep(100); delay(100); beep(100);
+          showBig("FAILED", "Try again");
+          Serial.printf("[OTA ENROLL] Failed to enroll Slot #%d\n", slot);
+        }
+        delay(2000);
+        setLed(0, 0, 0);
+      }
+    }
+  }
 }
 
 // ---------------- Breath sampling ----------------
@@ -489,8 +578,9 @@ void handleSerial() {
     int id = cmd.substring(7).toInt();
     finger.getParameters();
     if (!r307Ok || id < 1 || id > finger.capacity) { Serial.println("Invalid id or sensor offline"); return; }
+    Serial.printf("Enrolling fingerprint into Slot #%d. Place finger on sensor...\n", id);
     bool ok = enrollFingerprint(id);
-    Serial.println(ok ? "Enrolled OK. Now register this ID for the student in the backend (README sec. 7)."
+    Serial.println(ok ? "Enrolled OK! Stored in R307. Register in dashboard at http://localhost:5000"
                       : "Enrollment FAILED - try again");
     showBig(ok ? "Enrolled" : "Failed", "ID " + String(id));
     delay(1500);
@@ -575,6 +665,7 @@ void loop() {
   flushQueue();
   updatePresence();
   updateBaseline();
+  checkRemoteCommand(); // OTA enrollment check from web dashboard
   if (millis() - lastTelemetry > TELEMETRY_MS) sendTelemetry();
 
   if (!r307Ok) {

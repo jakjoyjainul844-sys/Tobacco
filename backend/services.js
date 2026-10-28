@@ -1,3 +1,11 @@
+const dns = require('dns');
+try {
+  dns.setDefaultResultOrder('ipv4first');
+  dns.setServers(['8.8.8.8', '1.1.1.1']);
+} catch (e) {
+  console.warn('DNS configure warning:', e.message);
+}
+
 const nodemailer = require('nodemailer');
 const cron = require('node-cron');
 const { Student, Recipient, Scan } = require('./models');
@@ -21,15 +29,27 @@ function getTransporter() {
       host: process.env.SMTP_HOST,
       port,
       secure: port === 465,
-      auth: { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS }
+      auth: { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS },
+      tls: { rejectUnauthorized: false }
     });
   }
   return transporter;
 }
 
+async function verifySmtp() {
+  const t = getTransporter();
+  if (!t) return { ok: false, error: 'SMTP not configured in .env' };
+  try {
+    await t.verify();
+    return { ok: true, host: process.env.SMTP_HOST, port: process.env.SMTP_PORT, user: process.env.SMTP_USER };
+  } catch (err) {
+    return { ok: false, error: err.message };
+  }
+}
+
 async function sendMail({ to, subject, html, attachments }) {
   const t = getTransporter();
-  if (!t || !to.length) {
+  if (!t || !to || !to.length) {
     console.warn(`[mail] not sent (SMTP not configured or no recipients): ${subject}`);
     return false;
   }
@@ -37,15 +57,36 @@ async function sendMail({ to, subject, html, attachments }) {
   return true;
 }
 
+async function sendTestEmail(targetEmail) {
+  const to = [targetEmail || process.env.HOD_EMAIL || process.env.SMTP_USER].filter(Boolean);
+  const subject = `Smart Classroom Entry System - Test Email (${dateIST()})`;
+  const html = `
+    <div style="font-family:Arial,sans-serif;max-width:560px;padding:16px;border:1px solid #e2e8f0;border-radius:8px">
+      <h2 style="color:#2563eb;margin:0 0 8px">Smart Classroom Entry System</h2>
+      <p>This is a verification email from your IoT Smart Classroom Entry &amp; Screening System.</p>
+      <div style="background:#f8fafc;padding:12px;border-radius:6px;margin:12px 0">
+        <p style="margin:4px 0"><b>Status:</b> SMTP Email Service is active and working properly!</p>
+        <p style="margin:4px 0"><b>Timestamp:</b> ${new Date().toLocaleString('en-IN', { timeZone: TZ })}</p>
+        <p style="margin:4px 0"><b>SMTP Host:</b> ${process.env.SMTP_HOST}:${process.env.SMTP_PORT}</p>
+        <p style="margin:4px 0"><b>Sender:</b> ${process.env.SMTP_USER}</p>
+      </div>
+      <p style="color:#64748b;font-size:13px">Fingerprint attendance and e-nose breath screening alerts are live.</p>
+    </div>`;
+  const sent = await sendMail({ to, subject, html });
+  return { sent, to };
+}
+
 async function telegram(text) {
   const token = process.env.TELEGRAM_BOT_TOKEN, chat = process.env.TELEGRAM_CHAT_ID;
   if (!token || !chat) return;
   try {
-    await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ chat_id: chat, text })
-    });
+    if (typeof fetch === 'function') {
+      await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ chat_id: chat, text })
+      });
+    }
   } catch (e) { console.error('[telegram]', e.message); }
 }
 
@@ -72,13 +113,16 @@ async function notifyAlert(scan, student) {
   const when = `${scan.date} ${fmtTime(scan.scannedAt)}`;
   const subject = `Screening alert: ${student.name} (${student.rollNo}) at ${fmtTime(scan.scannedAt)}`;
   const html = `
-    <div style="font-family:Arial,sans-serif;max-width:560px">
+    <div style="font-family:Arial,sans-serif;max-width:560px;border:1px solid #fecaca;padding:16px;border-radius:8px">
       <h2 style="color:#b91c1c;margin:0 0 8px">Entry screening alert</h2>
       <p>The e-nose screening at <b>${esc(scan.deviceId)}</b> flagged elevated tobacco-related volatile compounds.</p>
-      <table cellpadding="6" style="border-collapse:collapse">
-        <tr><td><b>Student</b></td><td>${esc(student.name)} (${esc(student.rollNo)})</td></tr>
+      <table cellpadding="6" style="border-collapse:collapse;width:100%;margin:12px 0">
+        <tr style="background:#fee2e2"><td><b>Student</b></td><td>${esc(student.name)} (${esc(student.rollNo)})</td></tr>
+        <tr><td><b>Department / Year</b></td><td>${esc(student.department || 'N/A')} - ${esc(student.year || '')} ${esc(student.section || '')}</td></tr>
+        <tr style="background:#fef2f2"><td><b>Fingerprint ID</b></td><td>#${student.fingerprintId}</td></tr>
         <tr><td><b>Time</b></td><td>${esc(when)}</td></tr>
-        <tr><td><b>Score</b></td><td>${(scan.score ?? 0).toFixed(2)} (1.00 = threshold)</td></tr>
+        <tr style="background:#fee2e2"><td><b>Score</b></td><td>${(scan.score ?? 0).toFixed(2)} (1.00 = threshold)</td></tr>
+        <tr><td><b>MQ-135 / MQ-2 / MQ-7 Delta</b></td><td>+${scan.readings?.mq135 || 0} / +${scan.readings?.mq2 || 0} / +${scan.readings?.mq7 || 0}</td></tr>
       </table>
       <p style="color:#555;font-size:13px">This is a sensor-based screening indicator, not a confirmed result.
       Please verify in person and follow the institution's policy.</p>
@@ -94,7 +138,7 @@ async function notifyAlert(scan, student) {
 async function buildReport(date = dateIST()) {
   const students = await Student.find({ active: true }).sort({ rollNo: 1 }).lean();
   const scans = await Scan.find({ date }).sort({ scannedAt: 1 }).lean();
-  const lateAfter = process.env.LATE_AFTER || '09:15';
+  const lateAfter = process.env.LATE_AFTER || '09:05';
 
   const map = new Map();
   const flaggedEntries = [];
@@ -115,9 +159,11 @@ async function buildReport(date = dateIST()) {
   const present = [], absent = [];
   for (const st of students) {
     const e = map.get(String(st._id));
-    if (!e) { absent.push({ rollNo: st.rollNo, name: st.name }); continue; }
+    if (!e) { absent.push({ rollNo: st.rollNo, name: st.name, fingerprintId: st.fingerprintId, department: st.department }); continue; }
     present.push({
       rollNo: st.rollNo, name: st.name,
+      fingerprintId: st.fingerprintId,
+      department: st.department,
       firstEntry: fmtTime(e.first),
       late: hm24(e.first) > lateAfter,
       flagged: e.flags > 0,
@@ -146,9 +192,9 @@ const csvCell = v => {
 };
 
 function reportToCsv(r) {
-  const rows = [['Roll No', 'Name', 'Status', 'First Entry', 'Late', 'Screening Flag', 'Entries']];
-  r.present.forEach(p => rows.push([p.rollNo, p.name, 'Present', p.firstEntry, p.late ? 'Yes' : 'No', p.flagged ? 'FLAGGED' : 'Clear', p.entries]));
-  r.absent.forEach(a => rows.push([a.rollNo, a.name, 'Absent', '', '', '', 0]));
+  const rows = [['Roll No', 'Name', 'FP ID', 'Dept', 'Status', 'First Entry', 'Late', 'Screening Flag', 'Entries']];
+  r.present.forEach(p => rows.push([p.rollNo, p.name, p.fingerprintId, p.department || '', 'Present', p.firstEntry, p.late ? 'Yes' : 'No', p.flagged ? 'FLAGGED' : 'Clear', p.entries]));
+  r.absent.forEach(a => rows.push([a.rollNo, a.name, a.fingerprintId, a.department || '', 'Absent', '', '', '', 0]));
   return rows.map(r2 => r2.map(csvCell).join(',')).join('\r\n');
 }
 
@@ -157,9 +203,9 @@ function reportToHtml(r) {
   const th = 'style="text-align:left;background:#f1f5f9;border:1px solid #cbd5e1;padding:6px"';
   const td = 'style="border:1px solid #e2e8f0;padding:6px"';
   const presentRows = r.present.map(p => `<tr>
-      <td ${td}>${esc(p.rollNo)}</td><td ${td}>${esc(p.name)}</td><td ${td}>${esc(p.firstEntry)}${p.late ? ' <b style="color:#b45309">(late)</b>' : ''}</td>
+      <td ${td}>${esc(p.rollNo)}</td><td ${td}>${esc(p.name)}</td><td ${td}>#${p.fingerprintId}</td><td ${td}>${esc(p.firstEntry)}${p.late ? ' <b style="color:#b45309">(late)</b>' : ''}</td>
       <td ${td}>${p.flagged ? '<b style="color:#b91c1c">FLAGGED</b>' : 'Clear'}</td></tr>`).join('');
-  const absentRows = r.absent.map(a => `<tr><td ${td}>${esc(a.rollNo)}</td><td ${td}>${esc(a.name)}</td></tr>`).join('');
+  const absentRows = r.absent.map(a => `<tr><td ${td}>${esc(a.rollNo)}</td><td ${td}>${esc(a.name)}</td><td ${td}>#${a.fingerprintId}</td></tr>`).join('');
   return `
   <div style="font-family:Arial,sans-serif;max-width:720px">
     <h2 style="margin:0">Daily Attendance Report</h2>
@@ -167,9 +213,9 @@ function reportToHtml(r) {
     <p><b>Total:</b> ${s.total} &nbsp; <b>Present:</b> ${s.present} &nbsp; <b>Absent:</b> ${s.absent} &nbsp;
        <b>Late:</b> ${s.late} &nbsp; <b>Screening flags:</b> ${s.flagged} &nbsp; <b>Unrecognised attempts:</b> ${s.unknownAttempts}</p>
     <h3>Present (${s.present})</h3>
-    <table style="border-collapse:collapse;width:100%"><tr><th ${th}>Roll No</th><th ${th}>Name</th><th ${th}>First entry</th><th ${th}>Screening</th></tr>${presentRows || `<tr><td ${td} colspan="4">None</td></tr>`}</table>
+    <table style="border-collapse:collapse;width:100%"><tr><th ${th}>Roll No</th><th ${th}>Name</th><th ${th}>FP ID</th><th ${th}>First entry</th><th ${th}>Screening</th></tr>${presentRows || `<tr><td ${td} colspan="5">None</td></tr>`}</table>
     <h3>Absent (${s.absent})</h3>
-    <table style="border-collapse:collapse;width:100%"><tr><th ${th}>Roll No</th><th ${th}>Name</th></tr>${absentRows || `<tr><td ${td} colspan="2">None</td></tr>`}</table>
+    <table style="border-collapse:collapse;width:100%"><tr><th ${th}>Roll No</th><th ${th}>Name</th><th ${th}>FP ID</th></tr>${absentRows || `<tr><td ${td} colspan="3">None</td></tr>`}</table>
     <p style="color:#666;font-size:12px;margin-top:16px">Screening flags are sensor-based indicators, not confirmed results. Full CSV attached.</p>
   </div>`;
 }
@@ -196,4 +242,14 @@ function startScheduler() {
   console.log(`[scheduler] daily report cron "${expr}" (${TZ})`);
 }
 
-module.exports = { dateIST, fmtTime, notifyAlert, buildReport, reportToCsv, sendDailyReport, startScheduler };
+module.exports = {
+  dateIST,
+  fmtTime,
+  verifySmtp,
+  sendTestEmail,
+  notifyAlert,
+  buildReport,
+  reportToCsv,
+  sendDailyReport,
+  startScheduler
+};
