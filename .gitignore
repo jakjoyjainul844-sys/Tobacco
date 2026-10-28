@@ -1,0 +1,4 @@
+node_modules/
+.env
+firmware/smart_classroom_entry/config.h
+firmware/
